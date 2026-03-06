@@ -143,13 +143,13 @@ const RadarChart = ({ data }) => {
         {/* Data Polygon */}
         <polygon 
           points={points} 
-          fill="rgba(59, 130, 246, 0.3)" 
-          stroke="#3b82f6" 
+          fill="rgba(38, 163, 163, 0.3)"
+          stroke="#26a3a3"
           strokeWidth="3" 
         />
         {data.map((d, i) => {
           const coords = getCoordinates(d.value, i, data.length);
-          return <circle key={`dot-${i}`} cx={coords.x} cy={coords.y} r="4" fill="#2563eb" />;
+          return <circle key={`dot-${i}`} cx={coords.x} cy={coords.y} r="4" fill="#26a3a3" />;
         })}
 
         {/* Labels */}
