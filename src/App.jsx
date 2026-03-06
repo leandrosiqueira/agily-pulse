@@ -1,4 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { db } from './firebase';
+import { collection, addDoc, getDocs, query, where, serverTimestamp } from 'firebase/firestore';
 import { 
   BarChart3, 
   ClipboardList, 
@@ -74,6 +76,8 @@ const QUESTIONS = [
   { id: 'oc3', cat: 'oc', text: 'Sinto que nosso trabalho impacta positivamente os clientes.' }
 ];
 
+const CURRENT_QUARTER = 'Q4 2025';
+
 // --- DADOS SIMULADOS PARA O DASHBOARD ---
 
 const MOCK_HISTORY = [
@@ -81,8 +85,6 @@ const MOCK_HISTORY = [
   { quarter: 'Q2 2025', ce: 3.5, op: 3.1, lc: 3.7, dc: 3.5, qt: 4.0, md: 4.0, oc: 4.3 },
   { quarter: 'Q3 2025', ce: 3.8, op: 3.3, lc: 3.9, dc: 3.7, qt: 4.2, md: 4.1, oc: 4.4 }
 ];
-
-const MOCK_CURRENT_RESPONSES = [];
 
 // --- COMPONENTES AUXILIARES ---
 
@@ -185,6 +187,11 @@ export default function App() {
   const [openText1, setOpenText1] = useState('');
   const [openText2, setOpenText2] = useState('');
   
+  useEffect(() => {
+    console.log('useEffect view:', view);
+    if (view === 'dashboard') loadResponses();
+  }, [view]);
+
   // Autenticação do Dashboard
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [adminPassword, setAdminPassword] = useState('');
@@ -195,8 +202,24 @@ export default function App() {
     localStorage.getItem('agily_survey_q4_2025_answered') === 'true'
   );
   
-  // Dashboard State (In a real app, this would be fetched from an API)
-  const [currentResponses, setCurrentResponses] = useState(MOCK_CURRENT_RESPONSES);
+  const [currentResponses, setCurrentResponses] = useState([]);
+  const [loadingResponses, setLoadingResponses] = useState(false);
+
+  const loadResponses = async () => {
+    console.log('loadResponses chamado');
+    setLoadingResponses(true);
+    try {
+      const q = query(collection(db, 'responses'), where('quarter', '==', CURRENT_QUARTER));
+      const snapshot = await getDocs(q);
+      const data = snapshot.docs.map(doc => doc.data());
+      console.log('Respostas carregadas do Firestore:', data);
+      setCurrentResponses(data);
+    } catch (err) {
+      console.error('Erro ao carregar respostas:', err);
+    } finally {
+      setLoadingResponses(false);
+    }
+  };
 
   const handleAnswer = (questionId, value) => {
     setAnswers(prev => ({ ...prev, [questionId]: value }));
@@ -206,23 +229,23 @@ export default function App() {
     return QUESTIONS.every(q => answers[q.id] !== undefined);
   };
 
-  const submitSurvey = () => {
+  const submitSurvey = async () => {
     if (!isSurveyComplete()) return;
-    
-    // Convert current answers to a category aggregate for the mock DB
-    const newResponse = {};
+
+    const newResponse = { quarter: CURRENT_QUARTER, timestamp: serverTimestamp() };
     CATEGORIES.forEach(cat => {
       const catQuestions = QUESTIONS.filter(q => q.cat === cat.id);
       const sum = catQuestions.reduce((acc, q) => acc + answers[q.id], 0);
       newResponse[cat.id] = sum / catQuestions.length;
     });
+    newResponse.openText1 = openText1;
+    newResponse.openText2 = openText2;
 
-    setCurrentResponses([...currentResponses, newResponse]);
-    
-    // Marca no navegador que a pessoa já respondeu
+    await addDoc(collection(db, 'responses'), newResponse);
+    setCurrentResponses(prev => [...prev, newResponse]);
+
     localStorage.setItem('agily_survey_q4_2025_answered', 'true');
     setHasAnswered(true);
-
     setView('success');
     window.scrollTo(0, 0);
   };
@@ -524,6 +547,14 @@ export default function App() {
   );
 
   const renderDashboard = () => {
+    if (loadingResponses) {
+      return (
+        <div className="min-h-screen bg-slate-100 flex items-center justify-center">
+          <p className="text-slate-500 text-lg font-medium">Carregando dados...</p>
+        </div>
+      );
+    }
+
     if (!dashboardData) {
       return (
         <div className="min-h-screen bg-slate-100 flex flex-col">
