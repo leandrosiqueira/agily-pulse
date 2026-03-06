@@ -188,7 +188,6 @@ export default function App() {
   const [openText2, setOpenText2] = useState('');
   
   useEffect(() => {
-    console.log('useEffect view:', view);
     if (view === 'dashboard') loadResponses();
   }, [view]);
 
@@ -206,13 +205,11 @@ export default function App() {
   const [loadingResponses, setLoadingResponses] = useState(false);
 
   const loadResponses = async () => {
-    console.log('loadResponses chamado');
     setLoadingResponses(true);
     try {
       const q = query(collection(db, 'responses'), where('quarter', '==', CURRENT_QUARTER));
       const snapshot = await getDocs(q);
       const data = snapshot.docs.map(doc => doc.data());
-      console.log('Respostas carregadas do Firestore:', data);
       setCurrentResponses(data);
     } catch (err) {
       console.error('Erro ao carregar respostas:', err);
